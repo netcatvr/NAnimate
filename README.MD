@@ -5,6 +5,7 @@ NAnimate is a lightweight, easy-to-use UdonSharp animation framework for VRChat.
 
 ## Features
 
+- Concurent animations (Up to 16 simultaneous animations.)
 - Animate position, rotation, and scale on any `Transform`
 - Built-in easing types:
   - Linear
