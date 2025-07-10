@@ -7,6 +7,8 @@ using VRC.Udon;
 public class AnimationExample : UdonSharpBehaviour
 {
     public NAnimate nAnimateInstance;
+    public Transform cube2;
+    public Transform cube3;
 
     private void Update()
     {
@@ -20,6 +22,11 @@ public class AnimationExample : UdonSharpBehaviour
             
             //Rotation Interpolation
             nAnimateInstance.AnimateRotation(gameObject.transform, new Quaternion(1, 1, 1, 1), 5, EaseType.BounceOut);
+
+            nAnimateInstance.Bounce(cube2, 3, new Vector3(1, 1, 1));
+            nAnimateInstance.Bounce(cube3, 5, new Vector3(2,2,2));
+
+
         }
     }
 

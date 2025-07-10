@@ -1,18 +1,16 @@
 ﻿/*
- *  NAnimate - Copyright (C) 2025 by Netcat.
- *  A Usefull collection of animation utils for udon.
- *  
- *  Math equations from: https://easings.net/
- *  Licensed under the MIT license.
- *  
- */
+*  NAnimate - Copyright (C) 2025 by Netcat.
+*  A Usefull collection of animation utils for udon.
+*  
+*  Math equations from: https://easings.net/
+*  Licensed under the MIT license.
+*  
+*/
 
 using UdonSharp;
 using UnityEngine;
-using UnityEngine.UIElements;
 using VRC.SDKBase;
 using VRC.Udon;
-
 
 public enum EaseType
 {
@@ -47,212 +45,233 @@ public enum EaseType
 
 public class NAnimate : UdonSharpBehaviour
 {
-    [TextArea,SerializeField]private string _ = 
+    [TextArea, SerializeField]
+    private string _ =
 @"Hey!
 This component does nothing until it is referenced by another script.";
 
-    private Transform posTargetTransform;
-    private Vector3 posStart;
-    private Vector3 posEnd;
-    private float posDuration;
-    private float posElapsed;
-    private bool posActive;
-    private EaseType posEase;
 
-    private Transform rotTargetTransform;
-    private Quaternion rotStart;
-    private Quaternion rotEnd;
-    private float rotDuration;
-    private float rotElapsed;
-    private bool rotActive;
-    private EaseType rotEase;
+    // Set max animations per type to avoid memory overhead
+    private const int MaxAnims = 16;
 
-    private Transform scaleTargetTransform;
-    private Vector3 scaleStart;
-    private Vector3 scaleEnd;
-    private float scaleDuration;
-    private float scaleElapsed;
-    private bool scaleActive;
-    private EaseType scaleEase;
+    private Transform[] posTargets = new Transform[MaxAnims];
+    private Vector3[] posStarts = new Vector3[MaxAnims];
+    private Vector3[] posEnds = new Vector3[MaxAnims];
+    private float[] posDurations = new float[MaxAnims];
+    private float[] posElapsed = new float[MaxAnims];
+    private EaseType[] posEases = new EaseType[MaxAnims];
+    private bool[] posActive = new bool[MaxAnims];
 
-    private bool bounceReturning;
+    private Transform[] rotTargets = new Transform[MaxAnims];
+    private Quaternion[] rotStarts = new Quaternion[MaxAnims];
+    private Quaternion[] rotEnds = new Quaternion[MaxAnims];
+    private float[] rotDurations = new float[MaxAnims];
+    private float[] rotElapsed = new float[MaxAnims];
+    private EaseType[] rotEases = new EaseType[MaxAnims];
+    private bool[] rotActive = new bool[MaxAnims];
+
+    private Transform[] scaleTargets = new Transform[MaxAnims];
+    private Vector3[] scaleStarts = new Vector3[MaxAnims];
+    private Vector3[] scaleEnds = new Vector3[MaxAnims];
+    private float[] scaleDurations = new float[MaxAnims];
+    private float[] scaleElapsed = new float[MaxAnims];
+    private EaseType[] scaleEases = new EaseType[MaxAnims];
+    private bool[] scaleActive = new bool[MaxAnims];
 
     void Update()
     {
         float dt = Time.deltaTime;
 
-        if (posActive)
+        for (int i = 0; i < MaxAnims; i++)
         {
-            posElapsed += dt;
-            float t = Mathf.Clamp01(posElapsed / posDuration);
-            float easedT = Ease(t, posEase);
-            posTargetTransform.localPosition = Vector3.LerpUnclamped(posStart, posEnd, easedT);
-
-            if (posElapsed >= posDuration)
-                posActive = false;
-        }
-
-        if (rotActive)
-        {
-            rotElapsed += dt;
-            float t = Mathf.Clamp01(rotElapsed / rotDuration);
-            float easedT = Ease(t, rotEase);
-            rotTargetTransform.localRotation = Quaternion.SlerpUnclamped(rotStart, rotEnd, easedT);
-
-            if (rotElapsed >= rotDuration)
-                rotActive = false;
-        }
-
-        if (scaleActive)
-        {
-            scaleElapsed += dt;
-            float t = Mathf.Clamp01(scaleElapsed / scaleDuration);
-            float easedT = Ease(t, scaleEase);
-            scaleTargetTransform.localScale = Vector3.LerpUnclamped(scaleStart, scaleEnd, easedT);
-
-            if (scaleElapsed >= scaleDuration)
+            if (posActive[i])
             {
-                if (scaleEase == EaseType.BounceOut && !bounceReturning)
-                {
-                    Vector3 temp = scaleStart;
-                    scaleStart = scaleEnd;
-                    scaleEnd = temp;
-                    scaleElapsed = 0f;
-                    bounceReturning = true;
-                }
-                else
-                {
-                    scaleActive = false;
-                    bounceReturning = false;
-                }
+                posElapsed[i] += dt;
+                float t = Mathf.Clamp01(posElapsed[i] / posDurations[i]);
+                posTargets[i].localPosition = Vector3.LerpUnclamped(posStarts[i], posEnds[i], Ease(t, posEases[i]));
+                if (posElapsed[i] >= posDurations[i]) posActive[i] = false;
+            }
+
+            if (rotActive[i])
+            {
+                rotElapsed[i] += dt;
+                float t = Mathf.Clamp01(rotElapsed[i] / rotDurations[i]);
+                rotTargets[i].localRotation = Quaternion.SlerpUnclamped(rotStarts[i], rotEnds[i], Ease(t, rotEases[i]));
+                if (rotElapsed[i] >= rotDurations[i]) rotActive[i] = false;
+            }
+
+            if (scaleActive[i])
+            {
+                scaleElapsed[i] += dt;
+                float t = Mathf.Clamp01(scaleElapsed[i] / scaleDurations[i]);
+                scaleTargets[i].localScale = Vector3.LerpUnclamped(scaleStarts[i], scaleEnds[i], Ease(t, scaleEases[i]));
+                if (scaleElapsed[i] >= scaleDurations[i]) scaleActive[i] = false;
             }
         }
     }
 
-    public void AnimatePosition(Transform targetTransform, Vector3 target, float duration, EaseType ease)
+    public void AnimatePosition(Transform target, Vector3 end, float duration, EaseType ease)
     {
-        posTargetTransform = targetTransform;
-        posStart = targetTransform.localPosition;
-        posEnd = target;
-        posDuration = Mathf.Max(duration, 0.001f);
-        posElapsed = 0f;
-        posActive = true;
-        posEase = ease;
+        int i = GetFreeIndex(posActive);
+        if (i == -1) return;
+
+        posTargets[i] = target;
+        posStarts[i] = target.localPosition;
+        posEnds[i] = end;
+        posDurations[i] = Mathf.Max(duration, 0.001f);
+        posElapsed[i] = 0f;
+        posEases[i] = ease;
+        posActive[i] = true;
     }
 
-    public void AnimateRotation(Transform targetTransform, Quaternion target, float duration, EaseType ease)
+    public void AnimateRotation(Transform target, Quaternion end, float duration, EaseType ease)
     {
-        rotTargetTransform = targetTransform;
-        rotStart = targetTransform.localRotation;
-        rotEnd = target;
-        rotDuration = Mathf.Max(duration, 0.001f);
-        rotElapsed = 0f;
-        rotActive = true;
-        rotEase = ease;
+        int i = GetFreeIndex(rotActive);
+        if (i == -1) return;
+
+        rotTargets[i] = target;
+        rotStarts[i] = target.localRotation;
+        rotEnds[i] = end;
+        rotDurations[i] = Mathf.Max(duration, 0.001f);
+        rotElapsed[i] = 0f;
+        rotEases[i] = ease;
+        rotActive[i] = true;
     }
 
-    public void AnimateScale(Transform targetTransform, Vector3 target, float duration, EaseType ease)
+    public void AnimateScale(Transform target, Vector3 end, float duration, EaseType ease)
     {
-        scaleTargetTransform = targetTransform;
-        scaleStart = targetTransform.localScale;
-        scaleEnd = target;
-        scaleDuration = Mathf.Max(duration, 0.001f);
-        scaleElapsed = 0f;
-        scaleActive = true;
-        scaleEase = ease;
-        bounceReturning = false;
+        int i = GetFreeIndex(scaleActive);
+        if (i == -1) return;
+
+        scaleTargets[i] = target;
+        scaleStarts[i] = target.localScale;
+        scaleEnds[i] = end;
+        scaleDurations[i] = Mathf.Max(duration, 0.001f);
+        scaleElapsed[i] = 0f;
+        scaleEases[i] = ease;
+        scaleActive[i] = true;
     }
 
-    public void Bounce(Transform targetTransform, float duration, Vector3 bounceAmount)
+    private int GetFreeIndex(bool[] activeArray)
     {
-        scaleTargetTransform = targetTransform;
-        scaleStart = targetTransform.localScale;
-        scaleEnd = scaleStart + bounceAmount;
-        scaleDuration = Mathf.Max(duration, 0.001f);
-        scaleElapsed = 0f;
-        scaleActive = true;
-        scaleEase = EaseType.BounceOut;
-        bounceReturning = false;
+        for (int i = 0; i < activeArray.Length; i++)
+        {
+            if (!activeArray[i]) return i;
+        }
+        return -1;
     }
+
+
+    public void Bounce(Transform target, float duration, Vector3 bounceAmount)
+    {
+        int i = GetFreeIndex(scaleActive);
+        if (i == -1) return;
+
+        // Phase 1: Bounce out
+        Vector3 start = target.localScale;
+        Vector3 peak = start + bounceAmount;
+
+        scaleTargets[i] = target;
+        scaleStarts[i] = start;
+        scaleEnds[i] = peak;
+        scaleDurations[i] = duration / 2f;
+        scaleElapsed[i] = 0f;
+        scaleEases[i] = EaseType.BounceOut;
+        scaleActive[i] = true;
+
+        // Schedule return to original
+        SendCustomEventDelayedSeconds(nameof(BounceReturn0), duration / 2f); // You can add BounceReturn1, etc. for more targets
+    }
+
+    // Helper to return to original scale
+    public void BounceReturn0()
+    {
+        int i = GetFreeIndex(scaleActive);
+        if (i == -1 || scaleTargets[0] == null) return;
+
+        Transform target = scaleTargets[0];
+        Vector3 end = target.localScale / 1.2f; // Return to near original scale
+
+        scaleTargets[i] = target;
+        scaleStarts[i] = target.localScale;
+        scaleEnds[i] = end;
+        scaleDurations[i] = 0.2f;
+        scaleElapsed[i] = 0f;
+        scaleEases[i] = EaseType.EaseOutBack;
+        scaleActive[i] = true;
+    }
+
 
     private float Ease(float t, EaseType ease)
     {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1f;
+
         switch (ease)
         {
             case EaseType.EaseInQuad: return t * t;
-            case EaseType.EaseOutQuad: return t * (2 - t);
-            case EaseType.EaseInOutQuad: return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
+            case EaseType.EaseOutQuad: return 1 - (1 - t) * (1 - t);
+            case EaseType.EaseInOutQuad: return t < 0.5f ? 2 * t * t : 1 - Mathf.Pow(-2 * t + 2, 2) / 2;
             case EaseType.EaseInCubic: return t * t * t;
-            case EaseType.EaseOutCubic: t -= 1; return t * t * t + 1;
-            case EaseType.EaseInOutCubic: return t < 0.5f ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
-
+            case EaseType.EaseOutCubic: return 1 - Mathf.Pow(1 - t, 3);
+            case EaseType.EaseInOutCubic: return t < 0.5f ? 4 * t * t * t : 1 - Mathf.Pow(-2 * t + 2, 3) / 2;
             case EaseType.EaseInQuart: return t * t * t * t;
-            case EaseType.EaseOutQuart: t -= 1; return 1 - t * t * t * t;
-            case EaseType.EaseInOutQuart: return t < 0.5f ? 8 * t * t * t * t : 1 - 8 * (t - 1) * (t - 1) * (t - 1) * (t - 1);
-
+            case EaseType.EaseOutQuart: return 1 - Mathf.Pow(1 - t, 4);
+            case EaseType.EaseInOutQuart: return t < 0.5f ? 8 * t * t * t * t : 1 - Mathf.Pow(-2 * t + 2, 4) / 2;
             case EaseType.EaseInQuint: return t * t * t * t * t;
-            case EaseType.EaseOutQuint: t -= 1; return 1 + t * t * t * t * t;
-            case EaseType.EaseInOutQuint: return t < 0.5f ? 16 * t * t * t * t * t : 1 + 16 * (t - 1) * (t - 1) * (t - 1) * (t - 1) * (t - 1);
-
+            case EaseType.EaseOutQuint: return 1 - Mathf.Pow(1 - t, 5);
+            case EaseType.EaseInOutQuint: return t < 0.5f ? 16 * t * t * t * t * t : 1 - Mathf.Pow(-2 * t + 2, 5) / 2;
             case EaseType.EaseInSine: return 1 - Mathf.Cos(t * Mathf.PI / 2);
             case EaseType.EaseOutSine: return Mathf.Sin(t * Mathf.PI / 2);
-            case EaseType.EaseInOutSine: return -0.5f * (Mathf.Cos(Mathf.PI * t) - 1);
-
-            case EaseType.EaseInExpo: return (t == 0f) ? 0f : Mathf.Pow(2, 10 * (t - 1));
-            case EaseType.EaseOutExpo: return (t == 1f) ? 1f : 1 - Mathf.Pow(2, -10 * t);
+            case EaseType.EaseInOutSine: return -(Mathf.Cos(Mathf.PI * t) - 1) / 2;
+            case EaseType.EaseInExpo: return t == 0f ? 0f : Mathf.Pow(2, 10 * t - 10);
+            case EaseType.EaseOutExpo: return t == 1f ? 1f : 1 - Mathf.Pow(2, -10 * t);
             case EaseType.EaseInOutExpo:
                 if (t == 0f) return 0f;
                 if (t == 1f) return 1f;
-                if (t < 0.5f) return Mathf.Pow(2, 20 * t - 10) / 2;
-                return (2 - Mathf.Pow(2, -20 * t + 10)) / 2;
-
+                return t < 0.5f
+                    ? Mathf.Pow(2, 20 * t - 10) / 2
+                    : (2 - Mathf.Pow(2, -20 * t + 10)) / 2;
             case EaseType.EaseInCirc: return 1 - Mathf.Sqrt(1 - t * t);
-            case EaseType.EaseOutCirc: t -= 1; return Mathf.Sqrt(1 - t * t);
+            case EaseType.EaseOutCirc: return Mathf.Sqrt(1 - Mathf.Pow(t - 1, 2));
             case EaseType.EaseInOutCirc:
-                if (t < 0.5f) return (1 - Mathf.Sqrt(1 - 4 * (t * t))) / 2;
-                t = t * 2 - 2;
-                return (Mathf.Sqrt(1 - t * t) + 1) / 2;
-
+                return t < 0.5f
+                    ? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * t, 2))) / 2
+                    : (Mathf.Sqrt(1 - Mathf.Pow(-2 * t + 2, 2)) + 1) / 2;
             case EaseType.EaseInBack:
-                const float s1 = 1.70158f;
-                return t * t * ((s1 + 1) * t - s1);
+                return c3 * t * t * t - c1 * t * t;
             case EaseType.EaseOutBack:
-                const float s2 = 1.70158f;
-                t -= 1;
-                return t * t * ((s2 + 1) * t + s2) + 1;
+                return 1 + c3 * Mathf.Pow(t - 1, 3) + c1 * Mathf.Pow(t - 1, 2);
             case EaseType.EaseInOutBack:
-                const float s3 = 1.70158f * 1.525f;
-                if (t < 0.5f)
-                    return (t * 2) * (t * 2) * ((s3 + 1) * (t * 2) - s3) / 2;
+                return t < 0.5f
+                    ? (Mathf.Pow(2 * t, 2) * ((c1 + 1) * 2 * t - c1)) / 2
+                    : (Mathf.Pow(2 * t - 2, 2) * ((c1 + 1) * (t * 2 - 2) + c1) + 2) / 2;
+            case EaseType.BounceOut:
+                if (t < 1 / 2.75f)
+                    return 7.5625f * t * t;
+                else if (t < 2 / 2.75f)
+                {
+                    t -= 1.5f / 2.75f;
+                    return 7.5625f * t * t + 0.75f;
+                }
+                else if (t < 2.5f / 2.75f)
+                {
+                    t -= 2.25f / 2.75f;
+                    return 7.5625f * t * t + 0.9375f;
+                }
                 else
                 {
-                    t = t * 2 - 2;
-                    return (t * t * ((s3 + 1) * t + s3) + 2) / 2;
+                    t -= 2.625f / 2.75f;
+                    return 7.5625f * t * t + 0.984375f;
                 }
-
-            case EaseType.BounceOut: return BounceEaseOut(t);
-            case EaseType.ElasticOut: return ElasticEaseOut(t);
-
+            case EaseType.ElasticOut:
+                if (t == 0f) return 0f;
+                if (t == 1f) return 1f;
+                float p = 0.3f;
+                return Mathf.Pow(2, -10 * t) * Mathf.Sin((t - p / 4) * (2 * Mathf.PI) / p) + 1;
             case EaseType.Linear:
             default:
                 return t;
         }
-    }
-
-    private float BounceEaseOut(float t)
-    {
-        // Smooth single bounce arc
-        float s = 1.5f; // lower = less overshoot
-        t = Mathf.Clamp01(t);
-        return 1f - Mathf.Pow(1f - t, 2) * (s - s * t); // custom curve with overshoot ease-out
-    }
-
-    private float ElasticEaseOut(float t)
-    {
-        if (t == 0f) return 0f;
-        if (t == 1f) return 1f;
-        float p = 0.3f;
-        return Mathf.Pow(2, -10 * t) * Mathf.Sin((t - p / 4f) * (2 * Mathf.PI) / p) + 1;
     }
 }
