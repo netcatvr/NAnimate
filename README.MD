@@ -17,7 +17,6 @@ NAnimate is a lightweight, easy-to-use UdonSharp animation framework for VRChat.
   - And many more!
 - Utility `Bounce()` method for quick and dirty "pop" animations
 - Lightweight, one-at-a-time per animation type per object
-- Written in pure UdonSharp — no external dependencies
 
 ## Usage
 
