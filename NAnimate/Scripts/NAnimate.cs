@@ -180,7 +180,7 @@ This component does nothing until it is referenced by another script.";
         scaleActive[i] = true;
 
         // Schedule return to original
-        SendCustomEventDelayedSeconds(nameof(BounceReturn0), duration / 2f); // You can add BounceReturn1, etc. for more targets
+        SendCustomEventDelayedSeconds(nameof(BounceReturn0), duration / 2f);
     }
 
     // Helper to return to original scale
